@@ -74,9 +74,9 @@ def quasinet(X, weights, biases):
     fc1 = tf.nn.tanh(tf.add(tf.matmul(fc1, weights[-1]["W"]), biases[-1]))
     return fc1
 
-learning_rate = 0.001
-training_iters = 200
-batch_size = 12
+learning_rate = 0.0001
+training_iters = 200000
+batch_size = 128
 display_step = 10
 
 mnist_data = mnist.input_data.read_data_sets("/tmp/data", one_hot=True)
@@ -103,14 +103,14 @@ init = tf.global_variables_initializer()
 
 with tf.Session() as sess:
 	sess.run(init)
-	print "B"
+	# print "B"
 	# print weights[0]["h"].eval()
 
 	step = 1
 	# Keep training until reach max iterations
-	# while step * batch_size < training_iters:
+	while step * batch_size < training_iters:
 	# if step==1:
-	for i in range(100):
+	# for i in range(100):
 		# print weights[0]["h"].eval()
 		batch_x, batch_y = mnist_data.train.next_batch(batch_size)
 		# Run optimization op (backprop)
