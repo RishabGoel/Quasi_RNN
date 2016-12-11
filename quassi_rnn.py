@@ -53,30 +53,32 @@ def update(X, weights, b, idx):
 				weights[idx]["c"] = tf.concat(0,[c, weights[idx]["c"][j+1:,:,:,:]])
 			else:
 				weights[idx]["c"] = tf.concat(0,[weights[idx]["c"][:j,:,:,:], c, weights[idx]["c"][j+1:,:,:,:]])
-	weights[idx]["h"] = conv_o_reshaped*weights[idx]["c"]
+		weights[idx]["h"] = conv_o_reshaped*weights[idx]["c"]
 
-	return weights[idx]["c"]
+	return weights[idx]["c"],weights[idx]["h"]
 
 
 def quasinet(X, weights, biases):
-    layer_1 = update(X, weights, biases, 0)
-    weights[0]["c"] = layer_1
+    cell_state, layer_1 = update(X, weights, biases, 0)
+    weights[0]["h"] = layer_1
+    weights[0]["c"] = cell_state
     dims = weights[1]["W_z"].get_shape().as_list()
     d = tf.zeros([layer_1.get_shape().as_list()[0], dims[0], dims[1]-1, 1], dtype=tf.float32)
     layer_2 = tf.concat(2,[d, tf.transpose(layer_1, perm=[0,2,1,3])])
-    layer_2 = update(layer_2, weights, biases, 1)
+    cell_state2,layer_2 = update(layer_2, weights, biases, 1)
     
     
-    weights[1]["c"] = layer_2
+    weights[1]["h"] = layer_2
+    weights[1]["c"] = cell_state2
     dim_prod = layer_2.get_shape().as_list()
     fc1 = tf.reshape(layer_2, [dim_prod[0], dim_prod[1]*dim_prod[2]])
     
     fc1 = tf.nn.tanh(tf.add(tf.matmul(fc1, weights[-1]["W"]), biases[-1]))
     return fc1
 
-learning_rate = 0.0001
-training_iters = 200000
-batch_size = 128
+learning_rate = 0.00001
+training_iters = 20000
+batch_size = 50
 display_step = 10
 
 mnist_data = mnist.input_data.read_data_sets("/tmp/data", one_hot=True)
