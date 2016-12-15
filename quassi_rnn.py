@@ -23,19 +23,30 @@ def create_weights(T, n, m):
 
 def update(X, weights, b, idx):
     # Convolution operation
+
     conv_z = tf.nn.conv2d(X, weights[idx]["W_z"], strides = [1, 1, 1, 1], padding = "VALID")
     conv_z_reshaped = tf.nn.tanh(tf.transpose(conv_z, perm = [0,2,3,1]))
+
+    # Convolution witj forget gate params
     conv_f = tf.nn.conv2d(X, weights[idx]["W_f"], strides = [1, 1, 1, 1], padding = "VALID")
     conv_f_reshaped = tf.nn.sigmoid(tf.transpose(conv_f, perm = [0,2,3,1]))
+
+    # Convolution with output gate params
     conv_o = tf.nn.conv2d(X, weights[idx]["W_o"], strides = [1, 1, 1, 1], padding = "VALID")
     conv_o_reshaped = tf.nn.sigmoid(tf.transpose(conv_o, perm = [0,2,3,1]))
+
+    # Cell state component contributed by the input
+    # This doesnt need to be sequential
     c_conv = (1-conv_f_reshaped)*conv_z_reshaped
+
     # Pooling operation
     c = weights[idx]["c"][0,:,:]
     cell_state = []
     with tf.device('/gpu:0'):
         for j in range(batch_size):
             ind_cell_state = []
+            # The following loop loops over the time dimension and generated the cell state for the 
+            # given sample j
             for i in range(c_conv.get_shape().as_list()[1]):
                 c = c*conv_f_reshaped[j,i,:,:] + c_conv[j, i, :, :]
                 ind_cell_state.append(c)
@@ -43,33 +54,47 @@ def update(X, weights, b, idx):
             dims_ics = ind_cell_state.get_shape().as_list()
             cell_state.append(ind_cell_state)
         cell_state = tf.convert_to_tensor(cell_state)
+        # Update to hidden state for the Minibatch
         weights[idx]["h"] = conv_o_reshaped*cell_state
     return c,weights[idx]["h"]
 
 # create layers
 def quasinet(X, weights, biases):
+	# X is of shape NxTxnx1 
+	# N : batch size, T : width of the filter, n : no of dimensions
+	# layer 1 for the network
     cell_state, layer_1 = update(X, weights, biases, 0)
     weights[0]["h"] = layer_1
     weights[0]["c"] = cell_state
+
+    # Mask the output of first layer with T-1 units
     dims = weights[1]["W_z"].get_shape().as_list()
     d = tf.zeros([layer_1.get_shape().as_list()[0], dims[0], dims[1]-1, 1], dtype=tf.float32)
     layer_2 = tf.concat(2,[d, tf.transpose(layer_1, perm=[0,2,1,3])])
+
+    # layer 2 for the network
     cell_state2,layer_2 = update(layer_2, weights, biases, 1)
     weights[1]["h"] = layer_2
     weights[1]["c"] = cell_state2
     dim_prod = layer_2.get_shape().as_list()
+
+    # Fully connected layer for the final prediction
     fc1 = tf.reshape(layer_2, [dim_prod[0], dim_prod[1]*dim_prod[2]])
     fc1 = tf.nn.tanh(tf.add(tf.matmul(fc1, weights[-1]["W"]), biases[-1]))
     return fc1
 
+
 def next_batch(step, digits_data, digits_labels, batch_size):
+	"""
+	This function get the next batch for training
+	"""
     X = digits_data[batch_size*(step):(step+1)*batch_size]
     Y = digits_labels[batch_size*(step):(step+1)*batch_size]
     return X,Y
     
 learning_rate = 0.01
-training_iters = 20000
 batch_size = 50
+training_iters = 34*batch_size
 display_step = 5
 
 # mnist_data = mnist.input_data.read_data_sets("/tmp/data", one_hot=True)
@@ -107,7 +132,7 @@ with tf.Session() as sess:
     sess.run(init)
     step = 1
     # Keep training until reach max iterations
-    while step <34:
+    while step*batch_size < training_iters:
         batch_x, batch_y = next_batch(step,digits_data, digits_labels, batch_size)
         # Run optimization op (backprop)
         p,q = sess.run([pred,optimizer], feed_dict={X: batch_x, Y: batch_y})
