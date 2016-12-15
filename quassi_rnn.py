@@ -5,10 +5,6 @@ from sklearn.datasets import load_digits
 
 
 
-# def reshape(x):
-# 	s = tf.reshape(x, [-1, 28, 28, 1])
-# 	d = tf.zeros([x.get_shape().as_list()[0], 28, 27, 1], dtype=tf.float32)
-# 	return tf.concat(2,[d, s])
 def reshape(x):
     s = tf.reshape(x, [-1, 8, 8, 1])
     d = tf.zeros([x.get_shape().as_list()[0], 8, 7, 1], dtype=tf.float32)
@@ -27,118 +23,42 @@ def create_weights(T, n, m):
 
 def update(X, weights, b, idx):
     # Convolution operation
-    # print X.get_shape(),"gh", idx
     conv_z = tf.nn.conv2d(X, weights[idx]["W_z"], strides = [1, 1, 1, 1], padding = "VALID")
-    # print conv_z.get_shape(),"de"
-    # print weights[idx]["W_z"]
     conv_z_reshaped = tf.nn.tanh(tf.transpose(conv_z, perm = [0,2,3,1]))
-    # print conv_z_reshaped.get_shape(),"df"
     conv_f = tf.nn.conv2d(X, weights[idx]["W_f"], strides = [1, 1, 1, 1], padding = "VALID")
     conv_f_reshaped = tf.nn.sigmoid(tf.transpose(conv_f, perm = [0,2,3,1]))
-    # print conv_z_reshaped.get_shape(),"df1"
-    # print conv_f.get_shape(),"de"
     conv_o = tf.nn.conv2d(X, weights[idx]["W_o"], strides = [1, 1, 1, 1], padding = "VALID")
     conv_o_reshaped = tf.nn.sigmoid(tf.transpose(conv_o, perm = [0,2,3,1]))
-    # print conv_z_reshaped.get_shape(),"df2"
-    # print conv_o.get_shape(),"de2"
     c_conv = (1-conv_f_reshaped)*conv_z_reshaped
     # Pooling operation
     c = weights[idx]["c"][0,:,:]
-#     print c.get_shape()
     cell_state = []
     with tf.device('/cpu:0'):
         for j in range(batch_size):
             ind_cell_state = []
-#             print c_conv.get_shape().as_list()[1]
             for i in range(c_conv.get_shape().as_list()[1]):
                 c = c*conv_f_reshaped[j,i,:,:] + c_conv[j, i, :, :]
-#                 c = tf.reshape(c,[1,c.get_shape().as_list()[0],c.get_shape().as_list()[1]])
-#                 print c.get_shape(),"ki"
                 ind_cell_state.append(c)
-#             ind_cell_state = tf.concat(0,[ind_cell_state])
             ind_cell_state = tf.convert_to_tensor(ind_cell_state)
             dims_ics = ind_cell_state.get_shape().as_list()
-#             print dims_ics,"gogo"
-#             ind_cell_state = tf.reshape(ind_cell_state,[1,dims_ics[0], dims_ics[1], dims_ics[2]])
             cell_state.append(ind_cell_state)
         cell_state = tf.convert_to_tensor(cell_state)
-#         print cell_state.get_shape()
         weights[idx]["h"] = conv_o_reshaped*cell_state
     return c,weights[idx]["h"]
 
-# def update(X, weights, b, idx):
-# 	# Convolution operation
-# 	conv_z = tf.nn.conv2d(X, weights[idx]["W_z"], strides = [1, 1, 1, 1], padding = "VALID")
-
-# 	conv_z_reshaped = tf.nn.tanh(tf.transpose(conv_z, perm = [0,2,3,1]))
-# 	conv_f = tf.nn.conv2d(X, weights[idx]["W_f"], strides = [1, 1, 1, 1], padding = "VALID")
-# 	conv_f_reshaped = tf.nn.sigmoid(tf.transpose(conv_f, perm = [0,2,3,1]))
-# 	conv_o = tf.nn.conv2d(X, weights[idx]["W_o"], strides = [1, 1, 1, 1], padding = "VALID")
-# 	conv_o_reshaped = tf.nn.sigmoid(tf.transpose(conv_o, perm = [0,2,3,1]))
-# 	c_conv = (1-conv_f_reshaped)*conv_z_reshaped
-
-# 	# Pooling operation
-# 	with tf.device('/cpu:0'):
-# 		for j in range(batch_size):
-# 			if j == 0:
-# 				c = weights[idx]["c"][-1,:,:,:]
-# 			else:
-# 				c = weights[idx]["c"][j-1,:,:,:]
-# 			for i in range(c.get_shape()[1]):
-# 				tmp = c[i,:,:]*conv_f_reshaped[j,i,:,:] + c_conv[j, i, :, :]
-# 				tmp = tf.reshape(tmp,[1,tmp.get_shape().as_list()[0],tmp.get_shape().as_list()[1]])
-# 				if i == 0:
-# 					c = tf.concat(0,[tmp, c[i+1:,:,:]])
-# 				else:
-# 					c = tf.concat(0,[c[:i,:,:],tmp, c[i+1:,:,:]])
-# 			c = tf.reshape(c, [1, c.get_shape().as_list()[0], c.get_shape().as_list()[1], c.get_shape().as_list()[2]])
-# 			if j==0:
-# 				weights[idx]["c"] = tf.concat(0,[c, weights[idx]["c"][j+1:,:,:,:]])
-# 			else:
-# 				weights[idx]["c"] = tf.concat(0,[weights[idx]["c"][:j,:,:,:], c, weights[idx]["c"][j+1:,:,:,:]])
-# 		weights[idx]["h"] = conv_o_reshaped*weights[idx]["c"]
-
-# 	return weights[idx]["c"],weights[idx]["h"]
-
-
-# def quasinet(X, weights, biases):
-#     cell_state, layer_1 = update(X, weights, biases, 0)
-#     weights[0]["h"] = layer_1
-#     weights[0]["c"] = cell_state
-#     dims = weights[1]["W_z"].get_shape().as_list()
-#     d = tf.zeros([layer_1.get_shape().as_list()[0], dims[0], dims[1]-1, 1], dtype=tf.float32)
-#     layer_2 = tf.concat(2,[d, tf.transpose(layer_1, perm=[0,2,1,3])])
-#     cell_state2,layer_2 = update(layer_2, weights, biases, 1)
-    
-    
-#     weights[1]["h"] = layer_2
-#     weights[1]["c"] = cell_state2
-#     dim_prod = layer_2.get_shape().as_list()
-#     fc1 = tf.reshape(layer_2, [dim_prod[0], dim_prod[1]*dim_prod[2]])
-    
-#     fc1 = tf.nn.tanh(tf.add(tf.matmul(fc1, weights[-1]["W"]), biases[-1]))
-#     return fc1
 # create layers
 def quasinet(X, weights, biases):
-#     print X.get_shape(),"g"
     cell_state, layer_1 = update(X, weights, biases, 0)
-#     print layer_1.get_shape(), cell_state.get_shape()
     weights[0]["h"] = layer_1
     weights[0]["c"] = cell_state
     dims = weights[1]["W_z"].get_shape().as_list()
-#     print dims
     d = tf.zeros([layer_1.get_shape().as_list()[0], dims[0], dims[1]-1, 1], dtype=tf.float32)
-#     print d.get_shape()
     layer_2 = tf.concat(2,[d, tf.transpose(layer_1, perm=[0,2,1,3])])
-#     print layer_2.get_shape()
     cell_state2,layer_2 = update(layer_2, weights, biases, 1)
-    
-    
     weights[1]["h"] = layer_2
     weights[1]["c"] = cell_state2
     dim_prod = layer_2.get_shape().as_list()
     fc1 = tf.reshape(layer_2, [dim_prod[0], dim_prod[1]*dim_prod[2]])
-    
     fc1 = tf.nn.tanh(tf.add(tf.matmul(fc1, weights[-1]["W"]), biases[-1]))
     return fc1
 
@@ -147,10 +67,10 @@ def next_batch(step, digits_data, digits_labels, batch_size):
     Y = digits_labels[batch_size*(step):(step+1)*batch_size]
     return X,Y
     
-learning_rate = 0.000001
+learning_rate = 0.01
 training_iters = 20000
 batch_size = 50
-display_step = 10
+display_step = 5
 
 # mnist_data = mnist.input_data.read_data_sets("/tmp/data", one_hot=True)
 digits = load_digits(n_class=10)
@@ -183,37 +103,6 @@ correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 init = tf.global_variables_initializer()
 
-# with tf.Session() as sess:
-# 	sess.run(init)
-# 	# print "B"
-# 	# print weights[0]["h"].eval()
-
-# 	step = 1
-# 	# Keep training until reach max iterations
-# 	# while step * batch_size < training_iters:
-# 	# if step==1:
-# 	for i in range(10):
-# 		# print weights[0]["h"].eval()
-# 		batch_x, batch_y = mnist_data.train.next_batch(batch_size)
-# 		# Run optimization op (backprop)
-# 		# print weights[0]["h"].eval(),"begin"
-# 		sess.run(optimizer, feed_dict={X: batch_x, Y: batch_y})
-# 		# print weights[0]["h"].eval(),"updated"
-# 		if step % display_step == 0:
-# 			# Calculate batch loss and accuracy
-# 			loss, acc = sess.run([cost, accuracy], feed_dict={X: batch_x,
-# 	                                                          Y: batch_y})
-# 			print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
-# 	              "{:.6f}".format(loss) + ", Training Accuracy= " + \
-# 	              "{:.5f}".format(acc)
-# 		step += 1
-# 	print "Optimization Finished!"
-
-# 	# Calculate accuracy for 256 mnist test images
-# 	print "Testing Accuracy:", \
-# 		sess.run(accuracy, feed_dict={X: mnist_data.test.images[:batch_size],
-# 	                                  Y: mnist_data.test.labels[:batch_size]})
-
 with tf.Session() as sess:
     sess.run(init)
     step = 1
@@ -234,7 +123,13 @@ with tf.Session() as sess:
         step += 1
     print "Optimization Finished!"
 
-    # Calculate accuracy for 256 mnist test images
-    print "Testing Accuracy:", \
-        sess.run(accuracy, feed_dict={X: digits_data[:batch_size],
-                                      Y: digits_labels[:batch_size]})
+    # Calculate accuracy for batch_size digits
+    val = 0.0
+    for i in range(30):
+        s,d = next_batch(i,digits_data, digits_labels, batch_size)
+        
+        f=(sess.run(accuracy, feed_dict={X: s,Y: d}))
+        # print f
+        val+=f*50
+
+    print val/(1500.0)
