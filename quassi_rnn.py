@@ -33,7 +33,7 @@ def update(X, weights, b, idx):
     # Pooling operation
     c = weights[idx]["c"][0,:,:]
     cell_state = []
-    with tf.device('/cpu:0'):
+    with tf.device('/gpu:0'):
         for j in range(batch_size):
             ind_cell_state = []
             for i in range(c_conv.get_shape().as_list()[1]):
